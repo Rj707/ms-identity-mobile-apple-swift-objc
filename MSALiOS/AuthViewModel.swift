@@ -20,6 +20,7 @@ enum AuthConstants {
 class AuthViewModel {
     private var applicationContext: MSALPublicClientApplication?
     private var webViewParameters: MSALWebviewParameters?
+    
     private var currentAccount: MSALAccount?
     private var currentDeviceMode: MSALDeviceMode?
 
@@ -29,6 +30,11 @@ class AuthViewModel {
     var accountUpdate = PassthroughSubject<MSALAccount?, Never>()
     var signOutStatusChange = PassthroughSubject<Bool, Never>()
     @Published var deviceModeMessage: String?
+    
+    init(applicationContext: MSALPublicClientApplication, webViewParameters: MSALWebviewParameters) {
+        self.applicationContext = applicationContext
+        self.webViewParameters = webViewParameters
+    }
     
     /**
      Initialize a MSALPublicClientApplication with a given clientID and authority

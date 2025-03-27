@@ -12,7 +12,7 @@ import Combine
 
 class AuthViewController: UIViewController {
     
-    private let viewModel: AuthViewModel
+    private var viewModel: AuthViewModel?
     private var cancellables = Set<AnyCancellable>()
     
     private var loggingText: UITextView!
@@ -20,31 +20,38 @@ class AuthViewController: UIViewController {
     private var callGraphButton: UIButton!
     private var usernameLabel: UILabel!
     
-    /// Initializes the view controller programmatically with a default or injected ViewModel.
-    init(viewModel: AuthViewModel = AuthViewModel()) {
+    /// Dependency Injection-friendly initializer
+    init(viewModel: AuthViewModel) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
     }
 
-    /// Initializes the view controller when loaded from a storyboard or XIB.
+    /// Required initializer for Storyboard/XIB use
     required init?(coder: NSCoder) {
-        self.viewModel = AuthViewModel()
         super.init(coder: coder)
     }
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        if viewModel == nil { // Ensure ViewModel is created only if it's not injected
+            guard let authViewModel = AuthViewModelFactory.create(parentViewController: self) else {
+                print("Failed to initialize AuthViewModel")
+                return
+            }
+            self.viewModel = authViewModel
+        }
+
         setupUI()
         setupBindings()
-        viewModel.initMSAL(parentViewController: self)
-        viewModel.loadCurrentAccount()
-        viewModel.refreshDeviceMode()
+        viewModel?.loadCurrentAccount()
+        viewModel?.refreshDeviceMode()
         setupNotifications()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        viewModel.loadCurrentAccount()
+        viewModel?.loadCurrentAccount()
     }
     
     // MARK: - UI Setup
@@ -127,28 +134,28 @@ class AuthViewController: UIViewController {
     // MARK: - Bindings
     
     private func setupBindings() {
-        viewModel.logUpdate
+        viewModel?.logUpdate
             .receive(on: DispatchQueue.main)
             .sink { [weak self] message in
                 self?.updateLogging(text: message)
             }
             .store(in: &cancellables)
         
-        viewModel.accountUpdate
+        viewModel?.accountUpdate
             .receive(on: DispatchQueue.main)
             .sink { [weak self] account in
                 self?.updateAccountLabel(account: account)
             }
             .store(in: &cancellables)
         
-        viewModel.signOutStatusChange
+        viewModel?.signOutStatusChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isEnabled in
                 self?.signOutButton.isEnabled = isEnabled
             }
             .store(in: &cancellables)
         
-        viewModel.$deviceModeMessage
+        viewModel?.$deviceModeMessage
             .receive(on: DispatchQueue.main)
             .sink { [weak self] message in
                 guard let message = message else { return }
@@ -160,15 +167,15 @@ class AuthViewController: UIViewController {
     // MARK: - Actions
     
     @objc private func callGraphAPI() {
-        viewModel.callGraphAPI()
+        viewModel?.callGraphAPI()
     }
     
     @objc private func signOut() {
-        viewModel.signOut()
+        viewModel?.signOut()
     }
     
     @objc private func getDeviceMode() {
-        viewModel.getDeviceMode()
+        viewModel?.getDeviceMode()
     }
     
     // MARK: - UI Updates
@@ -197,6 +204,7 @@ class AuthViewController: UIViewController {
     }
     
     @objc private func appCameToForeground() {
-        viewModel.loadCurrentAccount()
+        viewModel?.loadCurrentAccount()
     }
 }
+

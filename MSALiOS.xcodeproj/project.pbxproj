@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		4DC17E926BAC0BBF780DD200 /* Pods_MSALiOS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AD5263E088346F01270DB01B /* Pods_MSALiOS.framework */; };
+		93B879492D955160004AA4A1 /* AuthViewModelFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93B879482D955160004AA4A1 /* AuthViewModelFactory.swift */; };
 		93CFB0CD2D95274E008AB5FA /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93CFB0CC2D95274E008AB5FA /* AuthViewModel.swift */; };
 		93CFB0CE2D95274E008AB5FA /* AuthViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93CFB0CB2D95274E008AB5FA /* AuthViewController.swift */; };
 		FBA79EA11E9A038700179A54 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA79EA01E9A038700179A54 /* AppDelegate.swift */; };
@@ -18,6 +19,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		93B879482D955160004AA4A1 /* AuthViewModelFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModelFactory.swift; sourceTree = "<group>"; };
 		93CFB0CB2D95274E008AB5FA /* AuthViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewController.swift; sourceTree = "<group>"; };
 		93CFB0CC2D95274E008AB5FA /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
 		AD5263E088346F01270DB01B /* Pods_MSALiOS.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MSALiOS.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -96,6 +98,7 @@
 				FBA79EA01E9A038700179A54 /* AppDelegate.swift */,
 				FBA79EA21E9A038700179A54 /* ViewController.swift */,
 				93CFB0CB2D95274E008AB5FA /* AuthViewController.swift */,
+				93B879482D955160004AA4A1 /* AuthViewModelFactory.swift */,
 				93CFB0CC2D95274E008AB5FA /* AuthViewModel.swift */,
 				FBA79EA41E9A038700179A54 /* Main.storyboard */,
 				FBA79EA71E9A038700179A54 /* Assets.xcassets */,
@@ -236,6 +239,7 @@
 				FBA79EA11E9A038700179A54 /* AppDelegate.swift in Sources */,
 				93CFB0CD2D95274E008AB5FA /* AuthViewModel.swift in Sources */,
 				93CFB0CE2D95274E008AB5FA /* AuthViewController.swift in Sources */,
+				93B879492D955160004AA4A1 /* AuthViewModelFactory.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
