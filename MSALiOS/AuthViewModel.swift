@@ -9,14 +9,15 @@
 import MSAL
 import Combine
 
+enum AuthConstants {
+    static let clientID = "5e4e4817-67f8-4e91-9cf2-3b13a8e86761"
+    static let graphEndpoint = "https://graph.microsoft.com/v1.0/me/"
+    static let authority = "https://login.microsoftonline.com/443fdb4d-77c8-482a-961a-4c2fee164ef5"
+    static let redirectUri = "msauth.com.microsoft.identitysample.MSALiOS://auth"
+    static let scopes = ["api://5e4e4817-67f8-4e91-9cf2-3b13a8e86761/NX.User.Read"]
+}
+
 class AuthViewModel {
-    
-    private let kClientID = "5e4e4817-67f8-4e91-9cf2-3b13a8e86761"
-    private let kGraphEndpoint = "https://graph.microsoft.com/v1.0/me/"
-    private let kAuthority = "https://login.microsoftonline.com/443fdb4d-77c8-482a-961a-4c2fee164ef5"
-    private let kRedirectUri = "msauth.com.microsoft.identitysample.MSALiOS://auth"
-    private let kScopes = ["api://5e4e4817-67f8-4e91-9cf2-3b13a8e86761/NX.User.Read"]
-    
     private var applicationContext: MSALPublicClientApplication?
     private var webViewParameters: MSALWebviewParameters?
     private var currentAccount: MSALAccount?
@@ -47,9 +48,16 @@ class AuthViewModel {
     
     func initMSAL(parentViewController: UIViewController) {
         do {
-            guard let authorityURL = URL(string: kAuthority) else { onLogUpdate?("Unable to create authority URL"); return }
+            guard let authorityURL = URL(string: AuthConstants.authority) else {
+                onLogUpdate?("Unable to create authority URL")
+                return
+            }
             let authority = try MSALAADAuthority(url: authorityURL)
-            let msalConfiguration = MSALPublicClientApplicationConfig(clientId: kClientID, redirectUri: kRedirectUri, authority: authority)
+            let msalConfiguration = MSALPublicClientApplicationConfig(
+                clientId: AuthConstants.clientID,
+                redirectUri: AuthConstants.redirectUri,
+                authority: authority
+            )
             applicationContext = try MSALPublicClientApplication(configuration: msalConfiguration)
             webViewParameters = MSALWebviewParameters(authPresentationViewController: parentViewController)
         } catch {
@@ -124,7 +132,7 @@ class AuthViewModel {
     private func acquireTokenInteractively() {
         guard let applicationContext = applicationContext, let webViewParameters = webViewParameters else { return }
         
-        let parameters = MSALInteractiveTokenParameters(scopes: kScopes, webviewParameters: webViewParameters)
+        let parameters = MSALInteractiveTokenParameters(scopes: AuthConstants.scopes, webviewParameters: webViewParameters)
         parameters.promptType = .selectAccount
         
         applicationContext.acquireToken(with: parameters) { [weak self] result, error in
@@ -172,7 +180,7 @@ class AuthViewModel {
     
     private func acquireTokenSilently(_ account: MSALAccount) {
         guard let applicationContext = applicationContext else { return }
-        let parameters = MSALSilentTokenParameters(scopes: kScopes, account: account)
+        let parameters = MSALSilentTokenParameters(scopes: AuthConstants.scopes, account: account)
         
         applicationContext.acquireTokenSilent(with: parameters) { [weak self] result, error in
             guard let self = self else { return }
@@ -240,7 +248,7 @@ class AuthViewModel {
      built in URLSession to create a connection.
      */
     private func fetchGraphData(with token: String) {
-        guard let url = URL(string: kGraphEndpoint) else { return }
+        guard let url = URL(string: AuthConstants.graphEndpoint) else { return }
         var request = URLRequest(url: url)
         // Set the Authorization header for the request. We use Bearer tokens, so we specify Bearer + the token we got from the result
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
