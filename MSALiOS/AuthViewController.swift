@@ -127,19 +127,26 @@ class AuthViewController: UIViewController {
     // MARK: - Bindings
     
     private func setupBindings() {
-        viewModel.onLogUpdate = { [weak self] text in
-            self?.updateLogging(text: text)
-        }
+        viewModel.logUpdate
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] message in
+                self?.updateLogging(text: message)
+            }
+            .store(in: &cancellables)
         
-        viewModel.onAccountUpdate = { [weak self] account in
-            self?.updateAccountLabel(account: account)
-        }
+        viewModel.accountUpdate
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] account in
+                self?.updateAccountLabel(account: account)
+            }
+            .store(in: &cancellables)
         
-        viewModel.onSignOutStatusChange = { [weak self] isEnabled in
-            DispatchQueue.main.async {
+        viewModel.signOutStatusChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isEnabled in
                 self?.signOutButton.isEnabled = isEnabled
             }
-        }
+            .store(in: &cancellables)
         
         viewModel.$deviceModeMessage
             .receive(on: DispatchQueue.main)

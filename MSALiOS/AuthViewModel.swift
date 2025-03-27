@@ -21,14 +21,14 @@ class AuthViewModel {
     private var applicationContext: MSALPublicClientApplication?
     private var webViewParameters: MSALWebviewParameters?
     private var currentAccount: MSALAccount?
-    
-    var onLogUpdate: ((String) -> Void)?
-    var onAccountUpdate: ((MSALAccount?) -> Void)?
+    private var currentDeviceMode: MSALDeviceMode?
+
     typealias AccountCompletion = (MSALAccount?) -> Void
-    var onSignOutStatusChange: ((Bool) -> Void)?
     
+    var logUpdate = PassthroughSubject<String, Never>()
+    var accountUpdate = PassthroughSubject<MSALAccount?, Never>()
+    var signOutStatusChange = PassthroughSubject<Bool, Never>()
     @Published var deviceModeMessage: String?
-    var currentDeviceMode: MSALDeviceMode?
     
     /**
      Initialize a MSALPublicClientApplication with a given clientID and authority
@@ -49,7 +49,7 @@ class AuthViewModel {
     func initMSAL(parentViewController: UIViewController) {
         do {
             guard let authorityURL = URL(string: AuthConstants.authority) else {
-                onLogUpdate?("Unable to create authority URL")
+                logUpdate.send("Unable to create authority URL")
                 return
             }
             let authority = try MSALAADAuthority(url: authorityURL)
@@ -61,7 +61,7 @@ class AuthViewModel {
             applicationContext = try MSALPublicClientApplication(configuration: msalConfiguration)
             webViewParameters = MSALWebviewParameters(authPresentationViewController: parentViewController)
         } catch {
-            onLogUpdate?("Unable to create Application Context \(error)")
+            logUpdate.send("Unable to create Application Context \(error)")
         }
     }
     
@@ -78,16 +78,16 @@ class AuthViewModel {
             guard let self = self else { return }
             
             if let error = error {
-                self.onLogUpdate?("Couldn't query current account with error: \(error)")
+                self.logUpdate.send("Couldn't query current account with error: \(error)")
                 return
             }
             
             if let currentAccount = currentAccount {
-                self.onLogUpdate?("Found a signed-in account \(currentAccount.username ?? ""). Updating data for that account...")
+                self.logUpdate.send("Found a signed-in account \(currentAccount.username ?? ""). Updating data for that account...")
                 
                 self.currentAccount = currentAccount
-                self.onAccountUpdate?(currentAccount)
-                self.onSignOutStatusChange?(true)
+                self.accountUpdate.send(currentAccount)
+                self.signOutStatusChange.send(true)
                 
                 if let completion = completion {
                     completion(self.currentAccount)
@@ -99,14 +99,14 @@ class AuthViewModel {
             // If testing with Microsoft's shared device mode, see the account that has been signed out from another app. More details here:
             // https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-ios-shared-devices
             if let previousAccount = previousAccount {
-                self.onLogUpdate?("The account with username \(previousAccount.username ?? "") has been signed out.")
+                self.logUpdate.send("The account with username \(previousAccount.username ?? "") has been signed out.")
             } else {
-                self.onLogUpdate?("Account signed out. Updating UX")
+                self.logUpdate.send("Account signed out. Updating UX")
             }
             
             self.currentAccount = nil
-            self.onAccountUpdate?(nil)
-            self.onSignOutStatusChange?(false)
+            self.accountUpdate.send(nil)
+            self.signOutStatusChange.send(false)
             
             if let completion = completion {
                 completion(nil)
@@ -138,18 +138,17 @@ class AuthViewModel {
         applicationContext.acquireToken(with: parameters) { [weak self] result, error in
             guard let self = self else { return }
             if let error = error {
-                self.onLogUpdate?("Could not acquire token: \(error)")
+                self.logUpdate.send("Could not acquire token: \(error)")
                 return
             }
             guard let result = result else {
-                self.onLogUpdate?("Could not acquire token: No result returned")
+                self.logUpdate.send("Could not acquire token: No result returned")
                 return
             }
-            self.onLogUpdate?("Access token is \(result.accessToken)")
+            self.logUpdate.send("Access token is \(result.accessToken)")
             self.currentAccount = result.account
-            self.onAccountUpdate?(result.account)
-            self.onSignOutStatusChange?(true)
-//            self.fetchGraphData(with: result.accessToken)
+            self.accountUpdate.send(result.account)
+            self.signOutStatusChange.send(true)
             self.showTenantProfileClaims()
         }
     }
@@ -158,10 +157,10 @@ class AuthViewModel {
         if let tenantProfile = currentAccount?.tenantProfiles?.first,
            let claims = tenantProfile.claims {
             let result = claims.map { " \($0): \(String(describing: $1))" }.joined(separator: "\n")
-            self.onLogUpdate?(result)
+            self.logUpdate.send(result)
         } else if let claims = currentAccount?.accountClaims {
             let result = claims.map { " \($0): \($1)" }.joined(separator: "\n")
-            self.onLogUpdate?(result)
+            self.logUpdate.send(result)
         }
     }
     
@@ -198,17 +197,16 @@ class AuthViewModel {
                         return
                     }
                 }
-                self.onLogUpdate?( "Could not acquire token silently: \(error)")
+                self.logUpdate.send( "Could not acquire token silently: \(error)")
                 return
             }
             guard let result = result else {
-                self.onLogUpdate?("Could not acquire token silently: No result returned")
+                self.logUpdate.send("Could not acquire token silently: No result returned")
                 return
             }
-            self.onLogUpdate?("Refreshed Access token is \(result.accessToken)")
+            self.logUpdate.send("Refreshed Access token is \(result.accessToken)")
             self.currentAccount = result.account
-            self.onSignOutStatusChange?(true)
-//            self.fetchGraphData(with: result.accessToken)
+            self.signOutStatusChange.send(true)
             self.showTenantProfileClaims()
         }
     }
@@ -244,30 +242,6 @@ class AuthViewModel {
     }
     
     /**
-     This will invoke the call to the Microsoft Graph API. It uses the
-     built in URLSession to create a connection.
-     */
-    private func fetchGraphData(with token: String) {
-        guard let url = URL(string: AuthConstants.graphEndpoint) else { return }
-        var request = URLRequest(url: url)
-        // Set the Authorization header for the request. We use Bearer tokens, so we specify Bearer + the token we got from the result
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        
-        URLSession.shared.dataTask(with: request) { [weak self] (data, response, error) in
-            guard let self = self else { return }
-            if let error = error {
-                self.onLogUpdate?("Graph API Error: \(error)")
-                return
-            }
-            guard let result = try? JSONSerialization.jsonObject(with: data!, options: []) else {
-                self.onLogUpdate?("Couldn't deserialize result JSON")
-                return
-            }
-            self.onLogUpdate?("Result from Graph: \(result))")
-        }.resume()
-    }
-    
-    /**
      This action will invoke the remove account APIs to clear the token cache
      to sign out a user from this application.
      */
@@ -290,14 +264,14 @@ class AuthViewModel {
         applicationContext.signout(with: account, signoutParameters: signoutParameters, completionBlock: { [weak self] (success, error) in
             guard let self = self else { return }
             if let error = error {
-                self.onLogUpdate?("Couldn't sign out account with error: \(error)")
+                self.logUpdate.send("Couldn't sign out account with error: \(error)")
                 return
             }
             
-            self.onLogUpdate?("Sign out completed successfully")
+            self.logUpdate.send("Sign out completed successfully")
             self.currentAccount = nil
-            self.onAccountUpdate?(nil)
-            self.onSignOutStatusChange?(false)
+            self.accountUpdate.send(nil)
+            self.signOutStatusChange.send(false)
         })
     }
     
