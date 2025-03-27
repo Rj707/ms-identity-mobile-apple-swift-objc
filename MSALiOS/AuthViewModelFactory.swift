@@ -10,6 +10,23 @@
 import MSAL
 
 class AuthViewModelFactory {
+    
+    /**
+     Initialize a MSALPublicClientApplication with a given clientID and authority
+     
+     - clientId:            The clientID of your application, you should get this from the app portal.
+     - redirectUri:         A redirect URI of your application, you should get this from the app portal.
+     If nil, MSAL will create one by default. i.e./ msauth.<bundleID>://auth
+     - authority:           A URL indicating a directory that MSAL can use to obtain tokens. In Azure AD
+     it is of the form https://<instance/<tenant>, where <instance> is the
+     directory host (e.g. https://login.microsoftonline.com) and <tenant> is a
+     identifier within the directory itself (e.g. a domain associated to the
+     tenant, such as contoso.onmicrosoft.com, or the GUID representing the
+     TenantID property of the directory)
+     - error                The error that occurred creating the application object, if any, if you're
+     not interested in the specific error pass in nil.
+     */
+    
     static func create(parentViewController: UIViewController) -> AuthViewModel? {
         do {
             guard let authorityURL = URL(string: AuthConstants.authority) else {

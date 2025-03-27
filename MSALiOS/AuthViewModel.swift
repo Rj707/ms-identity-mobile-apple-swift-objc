@@ -9,15 +9,8 @@
 import MSAL
 import Combine
 
-enum AuthConstants {
-    static let clientID = "5e4e4817-67f8-4e91-9cf2-3b13a8e86761"
-    static let graphEndpoint = "https://graph.microsoft.com/v1.0/me/"
-    static let authority = "https://login.microsoftonline.com/443fdb4d-77c8-482a-961a-4c2fee164ef5"
-    static let redirectUri = "msauth.com.microsoft.identitysample.MSALiOS://auth"
-    static let scopes = ["api://5e4e4817-67f8-4e91-9cf2-3b13a8e86761/NX.User.Read"]
-}
-
 class AuthViewModel {
+    
     private var applicationContext: MSALPublicClientApplication?
     private var webViewParameters: MSALWebviewParameters?
     
@@ -36,40 +29,7 @@ class AuthViewModel {
         self.webViewParameters = webViewParameters
     }
     
-    /**
-     Initialize a MSALPublicClientApplication with a given clientID and authority
-     
-     - clientId:            The clientID of your application, you should get this from the app portal.
-     - redirectUri:         A redirect URI of your application, you should get this from the app portal.
-     If nil, MSAL will create one by default. i.e./ msauth.<bundleID>://auth
-     - authority:           A URL indicating a directory that MSAL can use to obtain tokens. In Azure AD
-     it is of the form https://<instance/<tenant>, where <instance> is the
-     directory host (e.g. https://login.microsoftonline.com) and <tenant> is a
-     identifier within the directory itself (e.g. a domain associated to the
-     tenant, such as contoso.onmicrosoft.com, or the GUID representing the
-     TenantID property of the directory)
-     - error                The error that occurred creating the application object, if any, if you're
-     not interested in the specific error pass in nil.
-     */
-    
-    func initMSAL(parentViewController: UIViewController) {
-        do {
-            guard let authorityURL = URL(string: AuthConstants.authority) else {
-                logUpdate.send("Unable to create authority URL")
-                return
-            }
-            let authority = try MSALAADAuthority(url: authorityURL)
-            let msalConfiguration = MSALPublicClientApplicationConfig(
-                clientId: AuthConstants.clientID,
-                redirectUri: AuthConstants.redirectUri,
-                authority: authority
-            )
-            applicationContext = try MSALPublicClientApplication(configuration: msalConfiguration)
-            webViewParameters = MSALWebviewParameters(authPresentationViewController: parentViewController)
-        } catch {
-            logUpdate.send("Unable to create Application Context \(error)")
-        }
-    }
+    // MARK: - Account Management
     
     func loadCurrentAccount(completion: AccountCompletion? = nil) {
         guard let applicationContext = applicationContext else { return }
@@ -120,6 +80,42 @@ class AuthViewModel {
         }
     }
     
+    /**
+     This action will invoke the remove account APIs to clear the token cache
+     to sign out a user from this application.
+     */
+    func signOut() {
+        /**
+         Removes all tokens from the cache for this application for the provided account
+         - account:    The account to remove from the cache
+         */
+        guard let applicationContext = applicationContext, let account = currentAccount else { return }
+        let signoutParameters = MSALSignoutParameters(webviewParameters: self.webViewParameters!)
+        
+        // If testing with Microsoft's shared device mode, trigger signout from browser. More details here:
+        // https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-ios-shared-devices
+        
+        if (self.currentDeviceMode == .shared) {
+            signoutParameters.signoutFromBrowser = true
+        } else {
+            signoutParameters.signoutFromBrowser = false
+        }
+        applicationContext.signout(with: account, signoutParameters: signoutParameters, completionBlock: { [weak self] (success, error) in
+            guard let self = self else { return }
+            if let error = error {
+                self.logUpdate.send("Couldn't sign out account with error: \(error)")
+                return
+            }
+            
+            self.logUpdate.send("Sign out completed successfully")
+            self.currentAccount = nil
+            self.accountUpdate.send(nil)
+            self.signOutStatusChange.send(false)
+        })
+    }
+    
+    // MARK: - Authentication & Token Handling
+    
     func callGraphAPI() {
         self.loadCurrentAccount { [weak self] (account) in
             guard let self = self else { return }
@@ -156,17 +152,6 @@ class AuthViewModel {
             self.accountUpdate.send(result.account)
             self.signOutStatusChange.send(true)
             self.showTenantProfileClaims()
-        }
-    }
-    
-    func showTenantProfileClaims() {
-        if let tenantProfile = currentAccount?.tenantProfiles?.first,
-           let claims = tenantProfile.claims {
-            let result = claims.map { " \($0): \(String(describing: $1))" }.joined(separator: "\n")
-            self.logUpdate.send(result)
-        } else if let claims = currentAccount?.accountClaims {
-            let result = claims.map { " \($0): \($1)" }.joined(separator: "\n")
-            self.logUpdate.send(result)
         }
     }
     
@@ -217,6 +202,19 @@ class AuthViewModel {
         }
     }
     
+    func showTenantProfileClaims() {
+        if let tenantProfile = currentAccount?.tenantProfiles?.first,
+           let claims = tenantProfile.claims {
+            let result = claims.map { " \($0): \(String(describing: $1))" }.joined(separator: "\n")
+            self.logUpdate.send(result)
+        } else if let claims = currentAccount?.accountClaims {
+            let result = claims.map { " \($0): \($1)" }.joined(separator: "\n")
+            self.logUpdate.send(result)
+        }
+    }
+    
+    // MARK: - Device Mode Management
+    
     func refreshDeviceMode() {
         if #available(iOS 13.0, *) {
             self.applicationContext?.getDeviceInformation(with: nil, completionBlock: {  [weak self]  (deviceInformation, error) in
@@ -245,40 +243,6 @@ class AuthViewModel {
             let modeString = isSharedDevice ? "shared" : "private"
             self.deviceModeMessage = "Received device info. Device is in the \(modeString) mode."
         }
-    }
-    
-    /**
-     This action will invoke the remove account APIs to clear the token cache
-     to sign out a user from this application.
-     */
-    func signOut() {
-        /**
-         Removes all tokens from the cache for this application for the provided account
-         - account:    The account to remove from the cache
-         */
-        guard let applicationContext = applicationContext, let account = currentAccount else { return }
-        let signoutParameters = MSALSignoutParameters(webviewParameters: self.webViewParameters!)
-        
-        // If testing with Microsoft's shared device mode, trigger signout from browser. More details here:
-        // https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-ios-shared-devices
-        
-        if (self.currentDeviceMode == .shared) {
-            signoutParameters.signoutFromBrowser = true
-        } else {
-            signoutParameters.signoutFromBrowser = false
-        }
-        applicationContext.signout(with: account, signoutParameters: signoutParameters, completionBlock: { [weak self] (success, error) in
-            guard let self = self else { return }
-            if let error = error {
-                self.logUpdate.send("Couldn't sign out account with error: \(error)")
-                return
-            }
-            
-            self.logUpdate.send("Sign out completed successfully")
-            self.currentAccount = nil
-            self.accountUpdate.send(nil)
-            self.signOutStatusChange.send(false)
-        })
     }
     
 }
