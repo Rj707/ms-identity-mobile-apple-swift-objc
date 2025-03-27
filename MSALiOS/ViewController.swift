@@ -33,12 +33,12 @@ import MSAL
 class ViewController: UIViewController, UITextFieldDelegate, URLSessionDelegate {
     
     // Update the below to your client ID you received in the portal. The below is for running the demo only
-    let kClientID = "66855f8a-60cd-445e-a9bb-8cd8eadbd3fa"
+    let kClientID = "5e4e4817-67f8-4e91-9cf2-3b13a8e86761"
     let kGraphEndpoint = "https://graph.microsoft.com/"
-    let kAuthority = "https://login.microsoftonline.com/common"
+    let kAuthority = "https://login.microsoftonline.com/443fdb4d-77c8-482a-961a-4c2fee164ef5"
     let kRedirectUri = "msauth.com.microsoft.identitysample.MSALiOS://auth"
     
-    let kScopes: [String] = ["user.read"]
+    let kScopes: [String] = ["api://5e4e4817-67f8-4e91-9cf2-3b13a8e86761/NX.User.Read"]
     
     var accessToken = String()
     var applicationContext : MSALPublicClientApplication?
@@ -50,7 +50,6 @@ class ViewController: UIViewController, UITextFieldDelegate, URLSessionDelegate 
     var usernameLabel: UILabel!
     
     var currentAccount: MSALAccount?
-    
     var currentDeviceMode: MSALDeviceMode?
 
     /**
