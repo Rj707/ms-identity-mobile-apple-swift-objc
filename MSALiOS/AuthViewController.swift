@@ -12,22 +12,34 @@ import Combine
 
 class AuthViewController: UIViewController {
     
-    private let viewModel = AuthViewModel()
+    private let viewModel: AuthViewModel
     private var cancellables = Set<AnyCancellable>()
     
-    var loggingText: UITextView!
-    var signOutButton: UIButton!
-    var callGraphButton: UIButton!
-    var usernameLabel: UILabel!
+    private var loggingText: UITextView!
+    private var signOutButton: UIButton!
+    private var callGraphButton: UIButton!
+    private var usernameLabel: UILabel!
+    
+    /// Initializes the view controller programmatically with a default or injected ViewModel.
+    init(viewModel: AuthViewModel = AuthViewModel()) {
+        self.viewModel = viewModel
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    /// Initializes the view controller when loaded from a storyboard or XIB.
+    required init?(coder: NSCoder) {
+        self.viewModel = AuthViewModel()
+        super.init(coder: coder)
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        initUI()
+        setupUI()
         setupBindings()
         viewModel.initMSAL(parentViewController: self)
         viewModel.loadCurrentAccount()
         viewModel.refreshDeviceMode()
-        platformViewDidLoadSetup()
+        setupNotifications()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -35,16 +47,84 @@ class AuthViewController: UIViewController {
         viewModel.loadCurrentAccount()
     }
     
-    func platformViewDidLoadSetup() {
-        NotificationCenter.default.addObserver(self,
-                                               selector: #selector(appCameToForeGround(notification:)),
-                                               name: UIApplication.willEnterForegroundNotification,
-                                               object: nil)
+    // MARK: - UI Setup
+    
+    private func setupUI() {
+        setupUsernameLabel()
+        setupButtons()
+        setupLoggingTextView()
     }
     
-    @objc func appCameToForeGround(notification: Notification) {
-        viewModel.loadCurrentAccount()
+    private func setupUsernameLabel() {
+        usernameLabel = UILabel()
+        usernameLabel.translatesAutoresizingMaskIntoConstraints = false
+        usernameLabel.text = ""
+        usernameLabel.textColor = .darkGray
+        usernameLabel.textAlignment = .right
+        
+        view.addSubview(usernameLabel)
+        
+        NSLayoutConstraint.activate([
+            usernameLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 50.0),
+            usernameLabel.rightAnchor.constraint(equalTo: view.rightAnchor, constant: -10.0),
+            usernameLabel.widthAnchor.constraint(equalToConstant: 300.0),
+            usernameLabel.heightAnchor.constraint(equalToConstant: 50.0)
+        ])
     }
+    
+    private func setupButtons() {
+        callGraphButton = createButton(title: "Sign In & Get Claims", action: #selector(callGraphAPI))
+        signOutButton = createButton(title: "Sign Out", action: #selector(signOut))
+        signOutButton.setTitleColor(.gray, for: .disabled)
+        let deviceModeButton = createButton(title: "Get device info", action: #selector(getDeviceMode))
+        
+        view.addSubview(callGraphButton)
+        view.addSubview(signOutButton)
+        view.addSubview(deviceModeButton)
+        
+        NSLayoutConstraint.activate([
+            callGraphButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            callGraphButton.topAnchor.constraint(equalTo: view.topAnchor, constant: 120.0),
+            callGraphButton.widthAnchor.constraint(equalToConstant: 300.0),
+            callGraphButton.heightAnchor.constraint(equalToConstant: 50.0),
+            
+            signOutButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            signOutButton.topAnchor.constraint(equalTo: callGraphButton.bottomAnchor, constant: 10.0),
+            signOutButton.widthAnchor.constraint(equalToConstant: 150.0),
+            signOutButton.heightAnchor.constraint(equalToConstant: 50.0),
+            
+            deviceModeButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            deviceModeButton.topAnchor.constraint(equalTo: signOutButton.bottomAnchor, constant: 10.0),
+            deviceModeButton.widthAnchor.constraint(equalToConstant: 150.0),
+            deviceModeButton.heightAnchor.constraint(equalToConstant: 50.0)
+        ])
+    }
+    
+    private func setupLoggingTextView() {
+        loggingText = UITextView()
+        loggingText.isUserInteractionEnabled = false
+        loggingText.translatesAutoresizingMaskIntoConstraints = false
+        
+        view.addSubview(loggingText)
+        
+        NSLayoutConstraint.activate([
+            loggingText.topAnchor.constraint(equalTo: signOutButton.bottomAnchor, constant: 50.0),
+            loggingText.leftAnchor.constraint(equalTo: view.leftAnchor, constant: 10.0),
+            loggingText.rightAnchor.constraint(equalTo: view.rightAnchor, constant: -10.0),
+            loggingText.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -10.0)
+        ])
+    }
+    
+    private func createButton(title: String, action: Selector) -> UIButton {
+        let button = UIButton()
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle(title, for: .normal)
+        button.setTitleColor(.blue, for: .normal)
+        button.addTarget(self, action: action, for: .touchUpInside)
+        return button
+    }
+    
+    // MARK: - Bindings
     
     private func setupBindings() {
         viewModel.onLogUpdate = { [weak self] text in
@@ -70,96 +150,46 @@ class AuthViewController: UIViewController {
             .store(in: &cancellables)
     }
     
-    @objc func callGraphAPI(_ sender: UIButton) {
+    // MARK: - Actions
+    
+    @objc private func callGraphAPI() {
         viewModel.callGraphAPI()
     }
     
-    @objc func signOut(_ sender: UIButton) {
+    @objc private func signOut() {
         viewModel.signOut()
     }
     
-    @objc func getDeviceMode(_ sender: UIButton) {
+    @objc private func getDeviceMode() {
         viewModel.getDeviceMode()
     }
     
-    func updateLogging(text: String) {
+    // MARK: - UI Updates
+    
+    private func updateLogging(text: String) {
         DispatchQueue.main.async {
             self.loggingText.text = text
         }
     }
     
-    func updateAccountLabel(account: MSALAccount?) {
+    private func updateAccountLabel(account: MSALAccount?) {
         DispatchQueue.main.async {
             self.usernameLabel.text = account?.username ?? "Signed out"
         }
     }
     
-    func initUI() {
-        
-        usernameLabel = UILabel()
-        usernameLabel.translatesAutoresizingMaskIntoConstraints = false
-        usernameLabel.text = ""
-        usernameLabel.textColor = .darkGray
-        usernameLabel.textAlignment = .right
-        
-        self.view.addSubview(usernameLabel)
-        
-        usernameLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 50.0).isActive = true
-        usernameLabel.rightAnchor.constraint(equalTo: view.rightAnchor, constant: -10.0).isActive = true
-        usernameLabel.widthAnchor.constraint(equalToConstant: 300.0).isActive = true
-        usernameLabel.heightAnchor.constraint(equalToConstant: 50.0).isActive = true
-        
-        // Add call Graph button
-        callGraphButton  = UIButton()
-        callGraphButton.translatesAutoresizingMaskIntoConstraints = false
-        callGraphButton.setTitle("Call Microsoft Graph API", for: .normal)
-        callGraphButton.setTitleColor(.blue, for: .normal)
-        callGraphButton.addTarget(self, action: #selector(callGraphAPI(_:)), for: .touchUpInside)
-        self.view.addSubview(callGraphButton)
-        
-        callGraphButton.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
-        callGraphButton.topAnchor.constraint(equalTo: view.topAnchor, constant: 120.0).isActive = true
-        callGraphButton.widthAnchor.constraint(equalToConstant: 300.0).isActive = true
-        callGraphButton.heightAnchor.constraint(equalToConstant: 50.0).isActive = true
-        
-        // Add sign out button
-        signOutButton = UIButton()
-        signOutButton.translatesAutoresizingMaskIntoConstraints = false
-        signOutButton.setTitle("Sign Out", for: .normal)
-        signOutButton.setTitleColor(.blue, for: .normal)
-        signOutButton.setTitleColor(.gray, for: .disabled)
-        signOutButton.addTarget(self, action: #selector(signOut(_:)), for: .touchUpInside)
-        self.view.addSubview(signOutButton)
-        
-        signOutButton.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
-        signOutButton.topAnchor.constraint(equalTo: callGraphButton.bottomAnchor, constant: 10.0).isActive = true
-        signOutButton.widthAnchor.constraint(equalToConstant: 150.0).isActive = true
-        signOutButton.heightAnchor.constraint(equalToConstant: 50.0).isActive = true
-        
-        let deviceModeButton = UIButton()
-        deviceModeButton.translatesAutoresizingMaskIntoConstraints = false
-        deviceModeButton.setTitle("Get device info", for: .normal);
-        deviceModeButton.setTitleColor(.blue, for: .normal);
-        deviceModeButton.addTarget(self, action: #selector(getDeviceMode(_:)), for: .touchUpInside)
-        self.view.addSubview(deviceModeButton)
-        
-        deviceModeButton.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
-        deviceModeButton.topAnchor.constraint(equalTo: signOutButton.bottomAnchor, constant: 10.0).isActive = true
-        deviceModeButton.widthAnchor.constraint(equalToConstant: 150.0).isActive = true
-        deviceModeButton.heightAnchor.constraint(equalToConstant: 50.0).isActive = true
-        
-        // Add logging textfield
-        loggingText = UITextView()
-        loggingText.isUserInteractionEnabled = false
-        loggingText.translatesAutoresizingMaskIntoConstraints = false
-        
-        self.view.addSubview(loggingText)
-        
-        loggingText.topAnchor.constraint(equalTo: deviceModeButton.bottomAnchor, constant: 10.0).isActive = true
-        loggingText.leftAnchor.constraint(equalTo: self.view.leftAnchor, constant: 10.0).isActive = true
-        loggingText.rightAnchor.constraint(equalTo: self.view.rightAnchor, constant: -10.0).isActive = true
-        loggingText.bottomAnchor.constraint(equalTo: self.view.bottomAnchor, constant: 10.0).isActive = true
+    // MARK: - Notifications
+    
+    private func setupNotifications() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appCameToForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func appCameToForeground() {
+        viewModel.loadCurrentAccount()
     }
 }
-
-
